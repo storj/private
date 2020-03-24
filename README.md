@@ -1,2 +1,2 @@
 # private
-Packages needed for different projects, however not intended for public use.
+packages needed for different projects, however not intended for public use.

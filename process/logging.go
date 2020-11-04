@@ -33,7 +33,7 @@ var (
 	logCaller   = flag.Bool("log.caller", isDev(), "if true, log function filename and line number")
 	logStack    = flag.Bool("log.stack", isDev(), "if true, log stack traces")
 	logEncoding = flag.String("log.encoding", "", "configures log encoding. can either be 'console', 'json', or 'pretty'.")
-	logOutput   = flag.String("log.output", "stderr", "can be stdout, stderr, or a filename")
+	logOutput   = flag.String("log.output", "stdout", "can be stdout, stderr, or a filename")
 
 	defaultLogEncoding = map[string]string{
 		"uplink": "pretty",

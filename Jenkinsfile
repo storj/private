@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             label 'main'
-            image docker.build("storj-ci", "--pull https://github.com/storj/ci.git").id
+            image docker.build("storj-ci", "--pull git://github.com/storj/ci.git#main").id
             args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
         }
     }
@@ -18,6 +18,7 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'cp go.mod .build/go.mod.orig'
             }
         }
 
@@ -36,6 +37,7 @@ pipeline {
                         sh 'check-errs ./...'
                         sh 'staticcheck ./...'
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                        sh 'check-mod-tidy -mod .build/go.mod.orig'
                         // TODO: reenable,
                         //    currently there are few packages that contain non-standard license formats.
                         //sh 'go-licenses check ./...'
@@ -44,7 +46,7 @@ pipeline {
 
                 stage('Tests') {
                     environment {
-                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
+                        COVERFLAGS = "${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=./...'}"
                     }
                     steps {
                         sh 'go vet ./...'

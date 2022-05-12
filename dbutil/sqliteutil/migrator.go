@@ -198,14 +198,19 @@ func dropTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err 
 			return err
 		}
 
+		queryTablesToDrop := ""
 		// Loop over the list of tables and decide which ones to keep and which to drop.
 		for _, tableName := range tables {
 			if !tableToKeep(tableName, tablesToKeep) {
-				// Drop tables we aren't told to keep in the destination database.
-				_, err = tx.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s;", tableName))
-				if err != nil {
-					return err
-				}
+				queryTablesToDrop += fmt.Sprintf("DROP TABLE %s;", tableName)
+			}
+		}
+
+		// Drop tables we aren't told to keep in the destination database.
+		if queryTablesToDrop != "" {
+			_, err = tx.ExecContext(ctx, queryTablesToDrop)
+			if err != nil {
+				return err
 			}
 		}
 

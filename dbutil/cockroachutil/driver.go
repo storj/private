@@ -100,6 +100,11 @@ func (c *cockroachConn) Close() error {
 	return c.underlying.Close()
 }
 
+// Ping checks if the cockroachConn is reachable
+func (c *cockroachConn) Ping(ctx context.Context) error {
+	return c.underlying.Ping(ctx)
+}
+
 // ExecContext (when implemented by a driver.Conn) provides ExecContext
 // functionality to a sql.DB instance. This implementation provides
 // retry semantics for single statements.

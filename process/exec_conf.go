@@ -24,9 +24,10 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"github.com/zeebo/structs"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
-
 	"storj.io/private/cfgstruct"
 	"storj.io/private/version"
 )
@@ -80,7 +81,19 @@ func ExecWithCustomConfigAndLogger(cmd *cobra.Command, debugEnabled bool, loadCo
 		InitTracing:            true,
 		LoadConfig:             loadConfig,
 		LoggerFactory:          loggerFactory,
+		TracingExporter:        otlpHttpTracingExporter,
 	})
+}
+
+// this could be spun out into a plugin of sorts so that they can be interchanged easily with other SpanExporters
+func otlpHttpTracingExporter(agentAddr string) trace.SpanExporter {
+	client := otlptracehttp.NewClient(otlptracehttp.WithInsecure())
+	exp, err := otlptrace.New(context.Background(), client)
+	if err != nil {
+		zap.L().Error("unable to create otlp tracing exporter", zap.Error(err))
+		return nil
+	}
+	return exp
 }
 
 // ExecOptions contains options for ExecWithCustomOptions.
@@ -92,6 +105,8 @@ type ExecOptions struct {
 
 	LoadConfig    func(cmd *cobra.Command, vip *viper.Viper) error
 	LoggerFactory func(*zap.Logger) *zap.Logger
+
+	TracingExporter func(tracingAgent string) trace.SpanExporter
 }
 
 // ExecWithCustomOptions runs a Cobra command with custom options.
@@ -341,24 +356,12 @@ func cleanup(cmd *cobra.Command, opts *ExecOptions) {
 			if certPathFlag != nil {
 				certPath = certPathFlag.Value.String()
 			}
-			collector, unregister, err := InitTracingWithHostname(ctx, logger, nil, certPath)
+			unregister, err := InitTracingWithHostname(ctx, logger, opts.TracingExporter, certPath)
 			if err != nil {
-				logger.Debug("failed to initialize tracing collector", zap.Error(err))
-			} else if collector != nil {
-				ctx, cancel := context.WithCancel(ctx)
-				var eg errgroup.Group
-				eg.Go(func() error {
-					collector.Run(ctx)
-					return nil
-				})
-				defer func() {
-					cancel()
-					unregister()
-					err := eg.Wait()
-					if err != nil {
-						logger.Debug("failed to stop tracing collector", zap.Error(err))
-					}
-				}()
+				logger.Debug("failed to init tracing", zap.Error(err))
+			}
+			if unregister != nil {
+				defer unregister()
 			}
 		}
 
